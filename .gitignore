@@ -1,0 +1,89 @@
+# Python
+*.py[cod]
+*.pyc
+__pycache__/
+*.so
+
+# Django
+*.log
+local_settings.py
+db.sqlite3
+media/
+staticfiles/
+*.pot
+*.pyc
+__pycache__/
+
+# Virtual environments
+venv/
+ENV/
+env/
+.venv/
+.env/
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Jupyter notebooks
+.ipynb_checkpoints
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+
+# Translations
+*.mo
+*.pot
+
+# Sphinx documentation
+docs/_build/
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre type checker
+.pyre/
+
+# IDEs and editors
+.idea/
+.vscode/
+
+# System files
+.DS_Store
+Thumbs.db
