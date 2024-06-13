@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.shortcuts import render
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
@@ -12,7 +13,7 @@ from langchain_openai import ChatOpenAI
 from langchain.chains import LLMChain
 from langchain.prompts import PromptTemplate
 
-openai.api_key = 'sk-proj-8XGQHhwItCkudcZiS30RT3BlbkFJ6NrVQK1k8RR3Ofoi82I4'
+openai.api_key = settings.OPENAI_API_KEY
 
 # Load the assessment model
 model_assessment_path = 'ml_sys/model/multi_regress_assess.h5'
