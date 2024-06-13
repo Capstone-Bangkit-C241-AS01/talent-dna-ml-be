@@ -7,6 +7,12 @@ from sklearn.calibration import LabelEncoder
 import pandas as pd
 import numpy as np
 import tensorflow as tf
+import openai
+from langchain_openai import ChatOpenAI
+from langchain.chains import LLMChain
+from langchain.prompts import PromptTemplate
+
+openai.api_key = 'sk-proj-8XGQHhwItCkudcZiS30RT3BlbkFJ6NrVQK1k8RR3Ofoi82I4'
 
 # Load the assessment model
 model_assessment_path = 'ml_sys/model/multi_regress_assess.h5'
@@ -15,6 +21,9 @@ model_assessment = tf.keras.models.load_model(model_assessment_path)
 # Load the jobs recommenders model
 model_jobs_path = 'ml_sys/model/transfer_learning_jobs.h5'
 model_jobs = tf.keras.models.load_model(model_jobs_path)
+
+# OpenAI API
+llm = ChatOpenAI(api_key=openai.api_key)
 
 # Talents name
 talents = ['CR', 'GN', 'CP', 'NB', 'AC', 'RS', 'ST', 'DR', 'EX', 'FL', 'PS', 'SZ',
@@ -48,6 +57,9 @@ def ml_process(request):
 
     # Split talents
     top_10_res, btm_5_res = define_top_and_bottom(talents_result_sorted)
+
+    # Split talents
+    top_10_res_1, btm_5_res_1 = output_talent(top_10_res, btm_5_res)
     # <--- End: Talents Multi Regression Process --->
 
     # <--- Start: Job Recommendation --->
@@ -78,18 +90,33 @@ def ml_process(request):
     # Preparing jobs result
     jobs_result = predicted_job(jobs_result, label_encoder, df_jobs_interest)
 
+    # Generating task and work style
+    tasks, work_styles = get_job_info_for_predictions(jobs_result)
+
+    # Generating output
+    jobs_recommendation = output_for_job_recommend(
+        jobs_result, tasks, work_styles)
+    # <--- End: Job Recommendation --->
+
+    # <--- Start: Talent Summarization --->
+    # Combine descriptions
+    combine_top, combine_btm = combine_desc(top_10_res, btm_5_res)
+
+    # Genarate summarization
+    top_talent_description, bottom_talent_description = get_summarization(
+        combine_top, combine_btm)
+
     # Response
     response_data = {
-        'top_10_talents': top_10_res.to_dict(orient='records'),
-        'bottom_5_talents': btm_5_res.to_dict(orient='records'),
-        # 'top_talent_description': top_talent_description,
-        # 'bottom_talent_description': bottom_talent_description,
-        # 'job_interests': job_interests_df.to_dict(orient='records'),
-        # 'job_recommendations': job_recommendations_df.to_dict(orient='records'),
+        'top_10_talents': top_10_res_1.to_dict(orient='records'),
+        'bottom_5_talents': btm_5_res_1.to_dict(orient='records'),
+        'top_talent_description': top_talent_description,
+        'bottom_talent_description': bottom_talent_description,
+        'job_recommendations': jobs_recommendation.to_dict(orient='records'),
     }
 
     # Return the result as JSON
-    return Response(jobs_result, status=status.HTTP_200_OK)
+    return Response(response_data, status=status.HTTP_200_OK)
 
 
 def prop_input(input):
@@ -268,3 +295,88 @@ def predicted_job(predictions, label_encoder, df_jobs_interest):
         (job, distance) for job, distance in zip(top_5_jobs, top_5_distances)
     ]
     return predicted_jobs_and_distances
+
+
+def get_job_info(job_title):
+    task_prompt = PromptTemplate.from_template(
+        f"jelaskan dengan singkat task utama dari pekerjaan {job_title}!, sertakan contoh case singkat")
+    task_chain = LLMChain(llm=llm, prompt=task_prompt)
+    tasks = task_chain.run(prompt=task_prompt, max_tokens=50)
+
+    work_style_prompt = PromptTemplate.from_template(
+        f"jelaskan dengan singkat work styles dari pekerjaan {job_title}!")
+    work_style_chain = LLMChain(llm=llm, prompt=work_style_prompt)
+    work_styles = work_style_chain.run(prompt=work_style_prompt, max_tokens=50)
+
+    return tasks.strip(), work_styles.strip()
+
+
+def get_job_info_for_predictions(predicted_jobs_and_distances):
+    tasks = []
+    work_styles = []
+
+    for job, _ in predicted_jobs_and_distances:
+        task, work_style = get_job_info(job)
+        tasks.append(task)
+        work_styles.append(work_style)
+
+    return tasks, work_styles
+
+
+def output_for_job_recommend(input, task, work_style):
+    df_predicted_jobs = pd.DataFrame(input, columns=['Job', 'Distance'])
+    df_predicted_jobs['Tasks'] = task
+    df_predicted_jobs['Work Styles'] = work_style
+    return df_predicted_jobs
+
+
+def combine_desc(top, bottom):
+    df_talent = pd.read_csv("ml_sys/data/talents_desc(2).csv")
+
+    # Top 10 talents
+    df_talent_result_10 = pd.merge(
+        top, df_talent, left_on='Talent', right_on='shorten_label')
+    df_talent_result_10 = df_talent_result_10.drop(
+        columns=['shorten_label', 'Unnamed: 0'])
+    combined_text_top = " ".join(df_talent_result_10['positive_desc'])
+
+    # Bottom 5 talents
+    df_talent_result_5 = pd.merge(
+        bottom, df_talent, left_on='Talent', right_on='shorten_label')
+    df_talent_result_5 = df_talent_result_5.drop(
+        columns=['shorten_label', 'Unnamed: 0'])
+    combined_text_btm = " ".join(df_talent_result_5['negative_desc'])
+
+    return combined_text_top, combined_text_btm
+
+
+def get_summarization(top, bottom):
+    task_prompt = PromptTemplate.from_template(
+        f"Singkatkan deskripsi berikut! {top}. Buatkan penjelasan maksimal 5 kalimat dan minimal 4 kalimat")
+    task_chain = LLMChain(llm=llm, prompt=task_prompt)
+    summary_top = task_chain.run(prompt=task_prompt, max_tokens=400)
+
+    task_prompt = PromptTemplate.from_template(
+        f"Singkatkan deskripsi berikut! {bottom}. Buatkan penjelasan maksimal 3 kalimat dan minimal 2 kalimat")
+    task_chain = LLMChain(llm=llm, prompt=task_prompt)
+    summary_btm = task_chain.run(prompt=task_prompt, max_tokens=300)
+
+    return summary_top.strip(), summary_btm.strip()
+
+
+def output_talent(top, bottom):
+    df_talent = pd.read_csv("ml_sys/data/talents_desc(2).csv")
+
+    # Top 10 talents
+    df_talent_result_10 = pd.merge(
+        top, df_talent, left_on='Talent', right_on='shorten_label')
+    df_talent_result_10 = df_talent_result_10[['name',
+                                              'Predicted Rank', 'Strength']]
+
+    # Bottom 5 talents
+    df_talent_result_5 = pd.merge(
+        bottom, df_talent, left_on='Talent', right_on='shorten_label')
+    df_talent_result_5 = df_talent_result_5[['name',
+                                            'Predicted Rank', 'Strength']]
+
+    return df_talent_result_10, df_talent_result_5
