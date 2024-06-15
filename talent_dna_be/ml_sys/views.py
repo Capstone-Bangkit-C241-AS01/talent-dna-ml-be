@@ -12,6 +12,9 @@ import openai
 from langchain_openai import ChatOpenAI
 from langchain.chains import LLMChain
 from langchain.prompts import PromptTemplate
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler, LabelEncoder
+from sklearn.neighbors import KNeighborsClassifier
 
 openai.api_key = settings.OPENAI_API_KEY
 
@@ -80,16 +83,17 @@ def ml_process(request):
     input_1 = np.array(input_1).astype(float)
 
     # Predicting jobs
-    jobs_result = model_jobs.predict(input_1)
+    # jobs_result = model_jobs.predict(input_1)
+    jobs_result = knn_jobs(input_1)
 
-    # Fit LabelEncoder with job labels
-    df_jobs_interest = pd.read_csv("ml_sys/data/job_interest.csv")
-    y_jobs = df_jobs_interest['job_en']
-    label_encoder = LabelEncoder()
-    label_encoder.fit(y_jobs)
+    # # Fit LabelEncoder with job labels
+    # df_jobs_interest = pd.read_csv("ml_sys/data/job_interest.csv")
+    # y_jobs = df_jobs_interest['job_en']
+    # label_encoder = LabelEncoder()
+    # label_encoder.fit(y_jobs)
 
-    # Preparing jobs result
-    jobs_result = predicted_job(jobs_result, label_encoder, df_jobs_interest)
+    # # # Preparing jobs result
+    # jobs_result = predicted_job(jobs_result, label_encoder, df_jobs_interest)
 
     # Generating task and work style
     tasks, work_styles = get_job_info_for_predictions(jobs_result)
@@ -114,6 +118,7 @@ def ml_process(request):
         'top_talent_description': top_talent_description,
         'bottom_talent_description': bottom_talent_description,
         'job_recommendations': jobs_recommendation.to_dict(orient='records'),
+        # 'test': jobs_result
     }
 
     # Return the result as JSON
@@ -381,3 +386,34 @@ def output_talent(top, bottom):
                                             'Predicted Rank', 'Strength']]
 
     return df_talent_result_10, df_talent_result_5
+
+
+def euclidean_distance(x1, x2):
+    return np.sqrt(np.sum((x1 - x2)**2, axis=1))
+
+
+def knn_jobs(input_interest):
+    # Load dataset
+    df_job_interest = pd.read_csv("ml_sys/data/job_interest.csv")
+
+    # Extract features and scale
+    features = df_job_interest[['conventional', 'investigative',
+                                'enterprising', 'artistic', 'social', 'realistic']].values
+    scaler = MinMaxScaler()
+    scaler.fit(features)
+    scaled_features = scaler.transform(features)
+    scaled_input = scaler.transform(input_interest)
+
+    # Calculate distances
+    distances = euclidean_distance(scaled_input, scaled_features)
+
+    # Combine distances with job names
+    jobs_with_distances = list(zip(df_job_interest['job_en'], distances))
+    # Sort by distance (ascending)
+    jobs_with_distances.sort(key=lambda x: x[1])
+
+    # Return top 5 recommended jobs with distances in specified format
+    predicted_jobs_and_distances = [
+        [job, float(distance)] for job, distance in jobs_with_distances[:5]]
+
+    return predicted_jobs_and_distances
