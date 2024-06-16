@@ -59,7 +59,7 @@ def ml_process(request):
     X = standar_scaler(input)
 
     # Predicting talents
-    inference_result = model_assessment.predict([X])
+    inference_result = model_assessment.predict(np.array(X).reshape(1, -1))
 
     # Construct dataframe for output
     talents_result_sorted = construct_talents_df(inference_result)
