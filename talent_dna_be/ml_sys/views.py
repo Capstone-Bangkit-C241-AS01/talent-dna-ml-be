@@ -15,16 +15,21 @@ from langchain.prompts import PromptTemplate
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler, LabelEncoder
 from sklearn.neighbors import KNeighborsClassifier
+from tensorflow.python.keras.losses import MeanSquaredError
+
+custom_objects = {
+    'mse': MeanSquaredError()
+}
 
 openai.api_key = settings.OPENAI_API_KEY
 
 # Load the assessment model
 model_assessment_path = 'ml_sys/model/multi_regress_assess.h5'
-model_assessment = tf.keras.models.load_model(model_assessment_path)
+model_assessment = tf.keras.models.load_model(model_assessment_path, custom_objects=custom_objects)
 
 # Load the jobs recommenders model
 model_jobs_path = 'ml_sys/model/transfer_learning_jobs.h5'
-model_jobs = tf.keras.models.load_model(model_jobs_path)
+model_jobs = tf.keras.models.load_model(model_jobs_path, custom_objects=custom_objects)
 
 # OpenAI API
 llm = ChatOpenAI(api_key=openai.api_key)
