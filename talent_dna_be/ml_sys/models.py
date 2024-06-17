@@ -1,3 +1,29 @@
 from django.db import models
 
-# Create your models here.
+
+class Top10Talent(models.Model):
+    name = models.CharField(max_length=100)
+    predicted_rank = models.FloatField()
+    strength = models.FloatField()
+
+
+class Bottom5Talent(models.Model):
+    name = models.CharField(max_length=100)
+    predicted_rank = models.FloatField()
+    strength = models.FloatField()
+
+
+class JobRecommendation(models.Model):
+    job = models.CharField(max_length=100)
+    distance = models.FloatField()
+    tasks = models.TextField()
+    work_styles = models.TextField()
+
+
+class Response(models.Model):
+    response_id = models.AutoField(primary_key=True)
+    top_talent_description = models.TextField()
+    bottom_talent_description = models.TextField()
+    top_10_talents = models.ManyToManyField(Top10Talent)
+    bottom_5_talents = models.ManyToManyField(Bottom5Talent)
+    job_recommendations = models.ManyToManyField(JobRecommendation)

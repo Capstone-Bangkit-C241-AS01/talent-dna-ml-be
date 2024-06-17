@@ -12,9 +12,10 @@ import openai
 from langchain_openai import ChatOpenAI
 from langchain.chains import LLMChain
 from langchain.prompts import PromptTemplate
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler, LabelEncoder
-from sklearn.neighbors import KNeighborsClassifier
+from sklearn.preprocessing import StandardScaler
+from .models import Top10Talent, Bottom5Talent, JobRecommendation, Response as DjangoResponse
+from .models import Response
+from .serializers import ResponseSerializer
 
 openai.api_key = settings.OPENAI_API_KEY
 
@@ -41,17 +42,21 @@ def simple_api_view(request):
     data = {"message": "Hello, TalentDNA"}
     return Response(data)
 
+@api_view(['GET'])
+def get_all_responses(request):
+    responses = Response.objects.all()
+    serializer = ResponseSerializer(responses, many=True)
+    return Response(serializer.data)
 
 @api_view(['POST'])
 def ml_process(request):
-
     # <--- Start: Talents Multi Regression Process --->
     # Define input into list
-    input = prop_input(request)
-    input = np.array(input).astype(float)
+    input_data = prop_input(request)
+    input_data = np.array(input_data).astype(float)
 
-    # Standarization
-    X = standar_scaler(input)
+    # Standardization
+    X = standar_scaler(input_data)
 
     # Predicting talents
     inference_result = model_assessment.predict([X])
@@ -74,8 +79,7 @@ def ml_process(request):
     df_interest_grouped = group_by_intereset(df_talent_interest)
 
     # Standardized Value
-    df_interest_grouped['Standardized Rank'] = standardize_predicted_ranks(
-        df_interest_grouped)
+    df_interest_grouped['Standardized Rank'] = standardize_predicted_ranks(df_interest_grouped)
     df_interest_grouped = df_interest_grouped.drop(columns="Predicted Rank")
 
     # Preprocessing
@@ -83,24 +87,13 @@ def ml_process(request):
     input_1 = np.array(input_1).astype(float)
 
     # Predicting jobs
-    # jobs_result = model_jobs.predict(input_1)
     jobs_result = knn_jobs(input_1)
-
-    # # Fit LabelEncoder with job labels
-    # df_jobs_interest = pd.read_csv("ml_sys/data/job_interest.csv")
-    # y_jobs = df_jobs_interest['job_en']
-    # label_encoder = LabelEncoder()
-    # label_encoder.fit(y_jobs)
-
-    # # # Preparing jobs result
-    # jobs_result = predicted_job(jobs_result, label_encoder, df_jobs_interest)
 
     # Generating task and work style
     tasks, work_styles = get_job_info_for_predictions(jobs_result)
 
     # Generating output
-    jobs_recommendation = output_for_job_recommend(
-        jobs_result, tasks, work_styles)
+    jobs_recommendation = output_for_job_recommend(jobs_result, tasks, work_styles)
     # <--- End: Job Recommendation --->
 
     # <--- Start: Talent Summarization --->
@@ -108,21 +101,62 @@ def ml_process(request):
     combine_top, combine_btm = combine_desc(top_10_res, btm_5_res)
 
     # Genarate summarization
-    top_talent_description, bottom_talent_description = get_summarization(
-        combine_top, combine_btm)
+    top_talent_description, bottom_talent_description = get_summarization(combine_top, combine_btm)
 
-    # Response
+    # Save top 10 talents
+    top_10_talents_objs = []
+    for index, row in top_10_res_1.iterrows():
+        top_10_talent = Top10Talent.objects.create(
+            name=row['name'],
+            predicted_rank=row['Predicted Rank'],
+            strength=row['Strength']
+        )
+        top_10_talents_objs.append(top_10_talent)
+
+    # Save bottom 5 talents
+    bottom_5_talents_objs = []
+    for index, row in btm_5_res_1.iterrows():
+        bottom_5_talent = Bottom5Talent.objects.create(
+            name=row['name'],
+            predicted_rank=row['Predicted Rank'],
+            strength=row['Strength']
+        )
+        bottom_5_talents_objs.append(bottom_5_talent)
+
+    # Save job recommendations
+    job_recommendations_objs = []
+    for index, row in jobs_recommendation.iterrows():
+        job_recommendation = JobRecommendation.objects.create(
+            job=row['Job'],
+            distance=row['Distance'],
+            tasks=row['Tasks'],
+            work_styles=row['Work Styles']
+        )
+        job_recommendations_objs.append(job_recommendation)
+
+    # Save the overall response
+    django_response = DjangoResponse.objects.create(
+        top_talent_description=top_talent_description,
+        bottom_talent_description=bottom_talent_description
+    )
+
+    # Add M2M relationships
+    django_response.top_10_talents.set(top_10_talents_objs)
+    django_response.bottom_5_talents.set(bottom_5_talents_objs)
+    django_response.job_recommendations.set(job_recommendations_objs)
+
+    # Response data
     response_data = {
         'top_10_talents': top_10_res_1.to_dict(orient='records'),
         'bottom_5_talents': btm_5_res_1.to_dict(orient='records'),
         'top_talent_description': top_talent_description,
         'bottom_talent_description': bottom_talent_description,
         'job_recommendations': jobs_recommendation.to_dict(orient='records'),
-        # 'test': jobs_result
     }
 
     # Return the result as JSON
     return Response(response_data, status=status.HTTP_200_OK)
+
 
 
 def prop_input(input):
