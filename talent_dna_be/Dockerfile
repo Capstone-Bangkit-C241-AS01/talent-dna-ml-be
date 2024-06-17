@@ -1,5 +1,5 @@
 # Gunakan image resmi Python sebagai base image
-FROM python:3.9
+FROM python:3.8-slim-buster
 
 # Set environment variable
 ENV PYTHONUNBUFFERED 1
@@ -15,5 +15,7 @@ RUN pip install -r requirements.txt
 # Salin seluruh kode aplikasi
 COPY . .
 
+EXPOSE 8000
+
 # Jalankan perintah migrate dan  saat container dimulai
-CMD [ "python", "manage.py", "runserver" ]
+CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
