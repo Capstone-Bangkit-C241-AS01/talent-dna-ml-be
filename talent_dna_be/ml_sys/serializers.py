@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Response, Top10Talent, Bottom5Talent, JobRecommendation
+from .models import Top10Talent, Bottom5Talent, JobRecommendation, Users
 
 
 class Top10TalentSerializer(serializers.ModelSerializer):
@@ -20,11 +20,13 @@ class JobRecommendationSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
-class ResponseSerializer(serializers.ModelSerializer):
-    top_10_talents = Top10TalentSerializer(many=True)
-    bottom_5_talents = Bottom5TalentSerializer(many=True)
-    job_recommendations = JobRecommendationSerializer(many=True)
+class UsersSerializer(serializers.ModelSerializer):
+    top_10_talents = Top10TalentSerializer(many=True, read_only=True)
+    bottom_5_talents = Bottom5TalentSerializer(many=True, read_only=True)
+    job_recommendations = JobRecommendationSerializer(
+        many=True, read_only=True)
 
     class Meta:
-        model = Response
-        fields = '__all__'
+        model = Users
+        fields = ['id', 'name', 'top_talent_description', 'bottom_talent_description',
+                  'top_10_talents', 'bottom_5_talents', 'job_recommendations']

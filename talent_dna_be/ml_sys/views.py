@@ -13,9 +13,8 @@ from langchain_openai import ChatOpenAI
 from langchain.chains import LLMChain
 from langchain.prompts import PromptTemplate
 from sklearn.preprocessing import StandardScaler
-from .models import Top10Talent, Bottom5Talent, JobRecommendation, Response as DjangoResponse
-from .models import Response
-from .serializers import ResponseSerializer
+from .models import *
+from .serializers import *
 
 openai.api_key = settings.OPENAI_API_KEY
 
@@ -42,17 +41,19 @@ def simple_api_view(request):
     data = {"message": "Hello, TalentDNA"}
     return Response(data)
 
+
 @api_view(['GET'])
 def get_all_responses(request):
-    responses = Response.objects.all()
-    serializer = ResponseSerializer(responses, many=True)
-    return Response(serializer.data)
+    users = Users.objects.all()
+    serializer = UsersSerializer(users, many=True)
+    return Response(serializer.data, status=status.HTTP_200_OK)
+
 
 @api_view(['POST'])
 def ml_process(request):
     # <--- Start: Talents Multi Regression Process --->
     # Define input into list
-    input_data = prop_input(request)
+    input_data, user_data = prop_input(request)
     input_data = np.array(input_data).astype(float)
 
     # Standardization
@@ -79,7 +80,8 @@ def ml_process(request):
     df_interest_grouped = group_by_intereset(df_talent_interest)
 
     # Standardized Value
-    df_interest_grouped['Standardized Rank'] = standardize_predicted_ranks(df_interest_grouped)
+    df_interest_grouped['Standardized Rank'] = standardize_predicted_ranks(
+        df_interest_grouped)
     df_interest_grouped = df_interest_grouped.drop(columns="Predicted Rank")
 
     # Preprocessing
@@ -93,7 +95,8 @@ def ml_process(request):
     tasks, work_styles = get_job_info_for_predictions(jobs_result)
 
     # Generating output
-    jobs_recommendation = output_for_job_recommend(jobs_result, tasks, work_styles)
+    jobs_recommendation = output_for_job_recommend(
+        jobs_result, tasks, work_styles)
     # <--- End: Job Recommendation --->
 
     # <--- Start: Talent Summarization --->
@@ -101,7 +104,8 @@ def ml_process(request):
     combine_top, combine_btm = combine_desc(top_10_res, btm_5_res)
 
     # Genarate summarization
-    top_talent_description, bottom_talent_description = get_summarization(combine_top, combine_btm)
+    top_talent_description, bottom_talent_description = get_summarization(
+        combine_top, combine_btm)
 
     # Save top 10 talents
     top_10_talents_objs = []
@@ -135,7 +139,8 @@ def ml_process(request):
         job_recommendations_objs.append(job_recommendation)
 
     # Save the overall response
-    django_response = DjangoResponse.objects.create(
+    django_response = Users.objects.create(
+        name=user_data,
         top_talent_description=top_talent_description,
         bottom_talent_description=bottom_talent_description
     )
@@ -158,11 +163,11 @@ def ml_process(request):
     return Response(response_data, status=status.HTTP_200_OK)
 
 
-
 def prop_input(input):
     input_string = input.data.get('string', '')
+    user_name = input.data.get('name', '')
     processed_data = [[int(char) for char in input_string]]
-    return processed_data
+    return processed_data, user_name
 
 
 def standar_scaler(input):

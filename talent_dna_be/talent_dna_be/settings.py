@@ -1,9 +1,9 @@
 # settings.py
 
 import os
+import dj_database_url
 from pathlib import Path
 from dotenv import load_dotenv
-import dj_database_url
 
 # Load environment variables from .env file
 load_dotenv()
@@ -57,7 +57,30 @@ TEMPLATES = [
 WSGI_APPLICATION = 'talent_dna_be.wsgi.application'
 
 DATABASES = {
-    'default': dj_database_url.config(default=os.environ.get('DATABASE_URL'))
+    # Docker
+    # 'default': {
+    #     'ENGINE': 'django.db.backends.postgresql',
+    #     'NAME': os.environ.get('POSTGRES_DB'),
+    #     'USER': os.environ.get('POSTGRES_USER'),
+    #     'PASSWORD': os.environ.get('POSTGRES_PASSWORD'),
+    #     'HOST': 'db',
+    #     'PORT': 5432,
+    # }
+
+    # Local
+
+    # 'default': {
+    #     'ENGINE': 'django.db.backends.postgresql',
+    #     'NAME': os.getenv('POSTGRES_DB'),
+    #     'USER': os.getenv('POSTGRES_USER'),
+    #     'PASSWORD': os.getenv('POSTGRES_PASSWORD'),
+    #     'HOST': 'localhost',
+    #     'PORT': 5432,
+    # }
+
+
+    'default': dj_database_url.config(default=os.getenv('DATABASE_URL'))
+
 }
 
 AUTH_PASSWORD_VALIDATORS = [
