@@ -66,6 +66,9 @@ services:
     image: postgres:14-alpine
     container_name: db
     restart: no
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: secret99
     ports:
       - "15001:5432"
     volumes:
