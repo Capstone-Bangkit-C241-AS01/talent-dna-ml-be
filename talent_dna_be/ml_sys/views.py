@@ -49,6 +49,18 @@ def get_all_responses(request):
     return Response(serializer.data, status=status.HTTP_200_OK)
 
 
+@api_view(['GET'])
+def get_user_by_id(request, response_id):
+    try:
+        user = Users.objects.get(id=response_id)
+        serializer = UsersSerializer(user)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    except Users.DoesNotExist:
+        return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+    except ValueError:
+        return Response({"error": "Invalid UUID"}, status=status.HTTP_400_BAD_REQUEST)
+
+
 @api_view(['POST'])
 def ml_process(request):
     # <--- Start: Talents Multi Regression Process --->

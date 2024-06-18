@@ -56,7 +56,7 @@ TEMPLATES = [
 WSGI_APPLICATION = 'talent_dna_be.wsgi.application'
 
 DATABASES = {
-    #Docker
+    # Docker
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': os.getenv('DB_NAME'),
